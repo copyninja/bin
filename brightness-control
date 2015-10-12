@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ $(id -u) -ne 0 ]; then
+    echo "Please use this with root privileges"
+    exit 2
+fi
+
+if [ $# -ne 1 ]; then
+    echo "Usage $0: brightness"
+    exit 2
+fi
+
+su -c "echo $1 > /sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-LVDS-1/intel_backlight/brightness"
