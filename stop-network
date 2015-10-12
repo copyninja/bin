@@ -1,0 +1,6 @@
+#!/bin/sh
+
+INTERFACE="$1"
+
+/sbin/ip addr flush dev $INTERFACE
+/sbin/ip link set $INTERFACE down
