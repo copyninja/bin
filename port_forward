@@ -1,0 +1,76 @@
+#!/bin/sh
+set -e
+
+
+usage() {
+    cat <<EOF
+    $(basename $0) [options] <in-interface> <out-interface> <port> <destination>
+
+    --clear           Clear the previous rules before inserting new ones
+
+    in-interface    Interface on which incoming traffic is expected
+    out-interface   Interface to which incoming traffic is to be
+                      forwarded.
+    port            Port to be forwarded. Can be integer or string
+                    from /etc/services.
+    destination     IP and port of the destination system to which
+                    traffic needs to be forwarded. This should be in
+                    form <destination_ip:port>
+
+(C) 2015 Vasudev Kamath - This program comes with ABSOLUTELY NO
+WARRANTY. This is free software, and you are welcome to redistribute
+it under the GNU GPL Version 3 (or later) License
+
+EOF
+}
+
+if [ $(id -u) -ne 0 ]; then
+    echo "You need to be root to run this script"
+    exit 1
+fi
+
+while true; do
+    case $1 in
+	--clear)
+	    CLEAR_RULES=1
+	    shift
+	    ;;
+	*)
+	    break
+	    ;;
+    esac
+done
+
+if [ $# -ne 4 ]; then
+    usage $0
+    exit 2
+fi
+
+PORT="$1"
+DESTINATION="$2"
+IN_INTERFACE="$3"
+OUT_INTERFACE="$4"
+
+# Get the incoming interface IP. This is used for SNAT.
+IN_IP=$(ip addr show $IN_INTERFACE|\
+	       perl -nE '/inet\s(.*)\sbrd/ and print $1')
+
+
+if [ -n "$CLEAR_RULES" ]; then
+    iptables -t nat -X
+    iptables -t nat -F
+    iptables -F
+fi
+
+# FIXME: may be ask user for protocol than blindly doing both
+# forward. Some services have tcp/udp alternative but not all.
+iptables -t nat -A PREROUTING -i $IN_INTERFACE -p tcp --dport $PORT \
+	 -j DNAT --to $DESTINATION
+iptables -t nat -A PREROUTING -i $IN_INTERFACE -p udp --dport $PORT \
+	 -j DNAT --to $DESTINATION
+iptables -A FORWARD -p tcp -d ${DESTINATION%%\:*} --dport $PORT -j ACCEPT
+iptables -A FORWARD -p udp -d ${DESTINATION%%\:*} --dport $PORT -j ACCEPT
+
+# Returning packet should have gateway IP
+iptables -t nat -A POSTROUTING -s ${DESTINATION%%\:*} -o \
+	 $IN_INTERFACE -j SNAT --to ${IN_IP%%\/*}
