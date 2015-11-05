@@ -6,16 +6,20 @@ usage() {
     cat <<EOF
     $(basename $0) [options] <in-interface> <out-interface> <port> <destination>
 
-    --clear           Clear the previous rules before inserting new ones
+    --clear           Clear the previous rules before inserting new
+                      ones
 
-    in-interface    Interface on which incoming traffic is expected
-    out-interface   Interface to which incoming traffic is to be
+    --protocol        Protocol for the rules to use.
+
+    in-interface      Interface on which incoming traffic is expected
+    out-interface     Interface to which incoming traffic is to be
                       forwarded.
-    port            Port to be forwarded. Can be integer or string
-                    from /etc/services.
-    destination     IP and port of the destination system to which
-                    traffic needs to be forwarded. This should be in
-                    form <destination_ip:port>
+
+    port              Port to be forwarded. Can be integer or string
+                      from /etc/services.
+    destination       IP and port of the destination system to which
+                      traffic needs to be forwarded. This should be in
+                      form <destination_ip:port>
 
 (C) 2015 Vasudev Kamath - This program comes with ABSOLUTELY NO
 WARRANTY. This is free software, and you are welcome to redistribute
@@ -46,10 +50,10 @@ if [ $# -ne 4 ]; then
     exit 2
 fi
 
-PORT="$1"
-DESTINATION="$2"
-IN_INTERFACE="$3"
-OUT_INTERFACE="$4"
+IN_INTERFACE="$1"
+OUT_INTERFACE="$2"
+PORT="$3"
+DESTINATION="$4"
 
 # Get the incoming interface IP. This is used for SNAT.
 IN_IP=$(ip addr show $IN_INTERFACE|\
