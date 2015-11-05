@@ -28,17 +28,42 @@ it under the GNU GPL Version 3 (or later) License
 EOF
 }
 
+setup_portforwarding () {
+    local protocol="$1"
+    iptables -t nat -A PREROUTING -i $IN_INTERFACE -p "$protocol" --dport $PORT \
+	     -j DNAT --to $DESTINATION
+    iptables -A FORWARD -p "$protocol" -d ${DESTINATION%%\:*} --dport $PORT -j ACCEPT
+
+    # Returning packet should have gateway IP
+    iptables -t nat -A POSTROUTING -s ${DESTINATION%%\:*} -o \
+	     $IN_INTERFACE -j SNAT --to ${IN_IP%%\/*}
+
+}
+
 if [ $(id -u) -ne 0 ]; then
     echo "You need to be root to run this script"
     exit 1
 fi
 
 while true; do
-    case $1 in
+    case "$1" in
 	--clear)
 	    CLEAR_RULES=1
 	    shift
 	    ;;
+	--protocol|--protocol=*?)
+	if [ "$1" = "--protocol" -a -n "$2" ];then
+	    PROTOCOL="$2"
+	    shift 2
+	elif [ "${1#--protocol=}" != "$1" ]; then
+	    PROTOCOL="${1$--protocol=}"
+	    shift 1
+	else
+	    echo "You need to specify protocl (tcp|udp)"
+	    exit 2
+	fi
+	;;
+
 	*)
 	    break
 	    ;;
@@ -66,15 +91,9 @@ if [ -n "$CLEAR_RULES" ]; then
     iptables -F
 fi
 
-# FIXME: may be ask user for protocol than blindly doing both
-# forward. Some services have tcp/udp alternative but not all.
-iptables -t nat -A PREROUTING -i $IN_INTERFACE -p tcp --dport $PORT \
-	 -j DNAT --to $DESTINATION
-iptables -t nat -A PREROUTING -i $IN_INTERFACE -p udp --dport $PORT \
-	 -j DNAT --to $DESTINATION
-iptables -A FORWARD -p tcp -d ${DESTINATION%%\:*} --dport $PORT -j ACCEPT
-iptables -A FORWARD -p udp -d ${DESTINATION%%\:*} --dport $PORT -j ACCEPT
-
-# Returning packet should have gateway IP
-iptables -t nat -A POSTROUTING -s ${DESTINATION%%\:*} -o \
-	 $IN_INTERFACE -j SNAT --to ${IN_IP%%\/*}
+if [ -n "$PROTOCOL" ]; then
+    setup_portforwarding $PROTOCOL
+else
+    setup_portforwarding tcp
+    setup_portforwarding udp
+fi
