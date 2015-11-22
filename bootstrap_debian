@@ -88,5 +88,5 @@ debootstrap --verbose --variant=minbase --arch=$ARCHITECTURE \
 
 if [ -n "$ROOT_PASSWD" ]; then
     echo "root:$ROOT_PASSWD" | chroot "$target" chpasswd
-    echo "Root password is '$ROOT_PASSWRD', please change!"
+    echo "Root password is '$ROOT_PASSWD', please change!"
 fi
