@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -e
+
+# clears the .gz/.xz/.dsc/.build/ and .changes file in given directory
+
+PWD=$(pwd)
+find $PWD -maxdepth 1 \( -name "*.gz" -o -name "*.xz" -o -name "*.bz2"\
+     -o -name "*.changes" -o -name "*.dsc" -o -name "*.build" \
+     -o -name "*.deb" -o -name "*.udeb" \) -exec rm -vf {} \;
