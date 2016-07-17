@@ -1,91 +1,93 @@
 #!/bin/sh
 set -e
 
-usage () {
-    echo "${0##/*} [options] <suite> <target> [<mirror>]"
-    echo "Bootstrap rootfs for Debian"
-    echo
-    cat <<EOF
-      --arch         set the architecture to install
-      --root-passwd  set the root password for bootstrapped rootfs
-EOF
+
+SCRIPT="${0}"
+
+MACHINES="/var/lib/machines"
+
+command_line_params() {
+    LONG_OPTIONS="arch:,name:,distribution:,mirror:,password:"
+    OPTIONS="a:,n:,d:,m:,p:"
+
+    PARAMETERS="$(getopt --longoptions $LONG_OPTIONS \
+     --name=${SCRIPT} --options ${OPTIONS} --shell sh -- ${@})"
+
+    if [ "${?}" != "0" ]; then
+	echo "'${SCRIPT}': getopt exit" >&2
+	exit 1
+    fi
+
+    eval set -- "${PARAMETERS}"
+
+    while true; do
+	case "${1}" in
+	    -a|--arch)
+		ARCHITECTURE="${2}"
+		shift 2
+		;;
+	    -n|--name)
+		NAME="${2}"
+		shift 2
+		;;
+	    -d|--distribution)
+		DISTRIBUTION="${2}"
+		shift 2
+		;;
+	    -m|--mirror)
+		MIRROR="${2}"
+		shift 2
+		;;
+	    -p|--password)
+		PASSWORD="${2}"
+		shift 2
+		;;
+	    --)
+		shift 1
+		break
+		;;
+	    *)
+		echo "'${SCRIPT}': getopt error" >&2
+		exit 1
+	esac
+    done
 }
 
-# copied from the lxc-debian template
-packages=ifupdown,\
-locales,\
-libui-dialog-perl,\
-dialog,\
-isc-dhcp-client,\
-netbase,\
-net-tools,\
-iproute,\
-openssh-server,\
-dbus,\
-systemd	
+usage() {
+    echo \
+    "Usage: ${SCRIPT} -n|--name NAME [-a|--arch ARCHITECTURE] [-d|--distribution DISTRIBUTION] [-p|--password PASSWORD] [-m|--mirror MIRROR]" >&2
+    exit 1
+}
 
 if [ $(id -u) -ne 0 ]; then
     echo "You must be root to execute this command"
     exit 2
 fi
 
-if [ $# -lt 2 ]; then
-    usage $0
+command_line_params "${@}"
+
+if [ -z "${NAME}" ]; then
+    usage
 fi
 
-while true; do
-    case "$1" in
-	 --root-passwd|--root-passwd=?*)
-	     if [ "$1" = "--root-passwd" -a -n "$2" ]; then
-		 ROOT_PASSWD="$2"
-		 shift 2
-	     elif [ "$1" != "${1#--root-passwd=}" ]; then
-		 ROOT_PASSWD="${1#--root-passwd=}"
-		 shift 1
-	     else
-		 # copied from lxc-debian template
-		 ROOT_PASSWD="$(dd if=/dev/urandom bs=6 count=1 2>/dev/null|base64)"
-	     fi
-	     ;;
-	 --arch|--arch=?*)
-	     if [ "$1" = "--arch" -a -n "$2" ]; then
-		 ARCHITECTURE="$2"
-		 shift 2
-	     elif [ "$1" != "${1#--arch=}" ]; then
-		 ARCHITECTURE="${1#--arch=}"
-		 shift 1
-	     else
-		 ARCHITECTURE="$(dpkg-architecture -q DEB_HOST_ARCH)"
-	     fi
-	     ;;
-	 *)
-	     break
-	     ;;
-    esac
-done
-				
-
-				
-release="$1"
-target="$2"
-
-if [ -z "$1" ] || [ -z "$2" ]; then
-    echo "You must specify suite and target"
+if [ -e "${MACHINES}/${NAME}" ]; then
+    echo "'${NAME}': machine already exists" >&2
     exit 1
 fi
 
-if [ -n "$3" ]; then
-    MIRROR="$3"
-fi
 
-MIRROR=${MIRROR:-http://httpredir.debian.org/debian}
+ARCHITECTURE="${ARCHITECTURE:-$(dpkg --print-architecture)}"
+DISTRIBUTION="${DISTRIBUTION:-jessie}"
+MIRROR="${MIRROR:-http://deb.debian.org/debian}"
+PASSWORD="${PASSWORD:-$(dd if=/dev/urandom bs=12 count=1 2>/dev/null | base64)}"
 
-echo "Downloading Debian $release ..."
-debootstrap --verbose --variant=minbase --arch=$ARCHITECTURE \
-	    --include=$packages \
-	    "$release" "$target" "$MIRROR"
+debootstrap --arch=${ARCHITECTURE} --include=dbus ${DISTRIBUTION} \
+	    ${MACHINES}/${NAME} ${MIRROR}
+chroot "${MACHINES}/${NAME}" apt-get clean
 
-if [ -n "$ROOT_PASSWD" ]; then
-    echo "root:$ROOT_PASSWD" | chroot "$target" chpasswd
-    echo "Root password is '$ROOT_PASSWD', please change!"
-fi
+# Set hostname
+echo "${NAME}" > "${MACHINES}/${NAME}/etc/hostname"
+
+# set root password
+echo root:${PASSWORD} | chroot "${MACHINES}/${NAME}" chpasswd
+echo "${NAME}: root password is set to '${PASSWORD}'."

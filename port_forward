@@ -35,8 +35,10 @@ setup_portforwarding () {
     iptables -A FORWARD -p "$protocol" -d ${DESTINATION%%\:*} --dport $PORT -j ACCEPT
 
     # Returning packet should have gateway IP
-    iptables -t nat -A POSTROUTING -s ${DESTINATION%%\:*} -o \
-	     $IN_INTERFACE -j SNAT --to ${IN_IP%%\/*}
+    for ip in ${IN_IP} ; do
+	iptables -t nat -A POSTROUTING -s ${DESTINATION%%\:*} -o \
+		 $IN_INTERFACE -j SNAT --to ${ip%%\/*}
+    done
 
 }
 
@@ -82,7 +84,7 @@ DESTINATION="$4"
 
 # Get the incoming interface IP. This is used for SNAT.
 IN_IP=$(ip addr show $IN_INTERFACE|\
-	       perl -nE '/inet\s(.*)\sbrd/ and print $1')
+	       perl -nE '/inet\s(.*)\sscope/ and say $1' | tr '\n' ' ')
 
 
 if [ -n "$CLEAR_RULES" ]; then
