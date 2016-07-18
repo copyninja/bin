@@ -84,7 +84,7 @@ DESTINATION="$4"
 
 # Get the incoming interface IP. This is used for SNAT.
 IN_IP=$(ip addr show $IN_INTERFACE|\
-	       perl -nE '/inet\s(.*)\sscope/ and say $1' | tr '\n' ' ')
+	       perl -nE '/inet\s(.*)\sbrd/ and say $1' | tr '\n' ' ')
 
 
 if [ -n "$CLEAR_RULES" ]; then
