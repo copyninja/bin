@@ -1,0 +1,32 @@
+#!/bin/sh
+
+#MAILSYNC=$(pgrep mail-sync)
+MBSYNC=$(pgrep mbsync)
+NOTMUCH=$(pgrep notmuch)
+
+if [ -n "$MBSYNC" -o -n "$NOTMUCH" ]; then
+	echo "Already running one instance of mail-sync. Exiting..."
+	exit 0
+fi
+
+echo "Deleting messages tagged as *deleted*"
+notmuch search --format=text0 --output=files tag:deleted |xargs -0 --no-run-if-empty rm -v
+
+echo "Moving spam to Spam folder"
+notmuch search --format=text0 --output=files tag:Spam and to:vasudev@copyninja.info | xargs -0 -I {} --no-run-if-empty mv -v {} ~/Mail/vasudev-copyninja.info/Spam/cur
+notmuch search --format=text0 --output=files tag:Spam and to:vasudev-debian@copyninja.info | xargs -0 -I {} --no-run-if-empty mv -v {} ~/Mail/vasudev-copyninja.info/Spam/cur
+
+
+MDIR="vasudev-copyninja.info vasudev-debian Gmail-1"
+mbsync -Va
+notmuch new
+
+for mdir in $MDIR; do
+    echo "Processing $mdir"
+    for fdir in $(ls -d /home/vasudev/Mail/$mdir/*); do
+        if [ $(basename $fdir) != "INBOX" ]; then
+            echo "Tagging for $(basename $fdir)"
+            notmuch tag +$(basename $fdir) -inbox -- folder:$mdir/$(basename $fdir)
+        fi
+    done
+done
