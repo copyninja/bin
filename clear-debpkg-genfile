@@ -7,4 +7,5 @@ set -e
 PWD=$(pwd)
 find $PWD -maxdepth 1 \( -name "*.gz" -o -name "*.xz" -o -name "*.bz2"\
      -o -name "*.changes" -o -name "*.dsc" -o -name "*.build" \
-     -o -name "*.deb" -o -name "*.udeb" \) -exec rm -vf {} \;
+     -o -name "*.deb" -o -name "*.udeb" -o -name "*.buildinfo" \
+     -o -name "*.upload" \) -exec rm -vf {} \;
